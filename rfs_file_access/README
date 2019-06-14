@@ -1,1 +1,1 @@
-Sample Kenrel modeule to access files from rootfs 
+Kernel module to access RFS/userspace files from kernel space
