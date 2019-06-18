@@ -1,4 +1,4 @@
-obj-m += my_nf_hook.o
+obj-m += nf_hook.o
 
 all:
 	make -C /lib/modules/$(shell uname -r)/build M=$(PWD) modules CHECK="cc -E"

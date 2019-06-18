@@ -10,8 +10,6 @@
 #include <linux/netfilter.h>
 #include <linux/netfilter_ipv4.h>
 
-MODULE_LICENSE("GPL");
-MODULE_DESCRIPTION("nf_hook");
 
 /*Network packet filter structure*/
 struct nf_rule {
@@ -29,9 +27,7 @@ struct nf_rule {
  
 static struct nf_rule policy_list;
  
-//the structure used to register the function
-static struct nf_hook_ops nfho;
-static struct nf_hook_ops nfho_out;
+static struct nf_hook_ops nfho_in, nfho_out;
  
 unsigned int port_str_to_int(char *port_str) {
 	unsigned int port = 0;    
@@ -97,8 +93,6 @@ bool check_ip(unsigned int ip, unsigned int ip_rule, unsigned int mask) {
 	printk(KERN_INFO "compare ip: %u <=> %u\n", tmp, ip_rule);
 
 	if (mask != 0) {
-//		printk(KERN_INFO "deal with mask\n");
-//		printk(KERN_INFO "mask: %d.%d.%d.%d\n", mask[0], mask[1], mask[2], mask[3]);
 		cmp_len = 0;
 		for (i = 0; i < 32; ++i) {
 			if (mask & (1 << (32-1-i)))
@@ -330,36 +324,18 @@ void add_a_rule(
 	list_add_tail(&(a_rule->list), &(policy_list.list));
 }
  
-void delete_a_rule(int num) {
-    int i = 0;
-    struct list_head *p, *q;
-    struct nf_rule *a_rule;
- 
-    printk(KERN_INFO "delete a rule: %d\n", num);
- 
-    list_for_each_safe(p, q, &policy_list.list) {
-        ++i;
-        if (i == num) {
-            a_rule = list_entry(p, struct nf_rule, list);
-            list_del(p);
-            kfree(a_rule);
-            return;
-        }
-    }
-}
- 
 /* Initialization routine */
-int init_module() {
+static int __init nf_hook_init(void) {
 	printk(KERN_INFO "initialize kernel module\n");
 
 	INIT_LIST_HEAD(&(policy_list.list));
  
 	/* Fill in the hook structure for incoming packet hook*/
-//	nfho.hook = hook_func_in;
-//	nfho.hooknum = NF_INET_LOCAL_IN;
-//	nfho.pf = PF_INET;
-//	nfho.priority = NF_IP_PRI_FIRST;
-//	nf_register_hook(&nfho);
+    nfho_in.hook = hook_func_in;
+    nfho_in.hooknum = NF_INET_LOCAL_IN;
+    nfho_in.pf = PF_INET;
+    nfho_in.priority = NF_IP_PRI_FIRST;
+    nf_register_hook(&nfho_in);
  
 	/* Fill in the hook structure for outgoing packet hook*/
 	nfho_out.hook = hook_func_out;
@@ -370,8 +346,10 @@ int init_module() {
 
 
 	/*this part of code is for testing purpose*/
-//	add_a_rule(2, "175.41.132.108", NULL, "255.255.0.0", NULL, NULL, NULL, 6, 0);
-//	add_a_rule(2, "10.4.103.110", NULL, "255.255.0.0", "10.4.103.110", NULL, "255.255.0.0", 6, 0);
+    /* Incoming packet rule */
+	add_a_rule(2, "175.41.132.108", NULL, "255.255.0.0", NULL, NULL, NULL, 6, 0);
+	add_a_rule(2, "10.4.103.110", NULL, "255.255.0.0", "10.4.103.110", NULL, "255.255.0.0", 6, 0);
+    /* Outgoing packet rule */
 	add_a_rule(2, NULL, NULL, NULL, "10.187.52.234", NULL, "255.255.0.0", 6, 0);
 	add_a_rule(2, NULL, NULL, NULL, "175.41.132.108", NULL, "255.255.0.0", 6, 0);
 
@@ -379,11 +357,11 @@ int init_module() {
 }
  
 /* Cleanup routine */
-void cleanup_module() {
+static void __exit nf_hook_exit(void) {
     struct list_head *p, *q;
     struct nf_rule *a_rule;
 
-//    nf_unregister_hook(&nfho);
+    nf_unregister_hook(&nfho_in);
     nf_unregister_hook(&nfho_out);
 
     printk(KERN_INFO "free policy list\n");
@@ -396,3 +374,10 @@ void cleanup_module() {
     }
     printk(KERN_INFO "kernel module unloaded.\n");
 }
+
+module_init(nf_hook_init);
+module_exit(nf_hook_exit);
+
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Venkatesh Parthasarathy <venkatesh81290@gmail.com>");
+MODULE_DESCRIPTION("Sample Netfilter Hook driver");
